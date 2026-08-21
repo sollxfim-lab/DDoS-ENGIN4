@@ -56,8 +56,22 @@ def load_user_agents(filepath):
     lines = [ln.strip() for ln in content.splitlines() if ln.strip() and not ln.startswith("#")]
     return lines
 
+def run_port_scan(target):
+    """Run port scanner from port_scan_attack.py then optionally launch attack."""
+    try:
+        import port_scan_attack
+        # Override sys.argv for port_scan_attack main
+        sys.argv = ["port_scan_attack.py", target]
+        port_scan_attack.main()
+    except ImportError:
+        print("[!] port_scan_attack.py tidak ditemukan di folder yang sama.")
+        print("[!] Pastikan file tersebut ada di root ddos_toolkit/.")
+        sys.exit(1)
+    except SystemExit:
+        pass
+
 def main():
-    parser = argparse.ArgumentParser(description="Powerful DDoS Toolkit with Proxy Scraper")
+    parser = argparse.ArgumentParser(description="Powerful DDoS Toolkit with Proxy Scraper and Port Scanner")
     parser.add_argument("--target", help="Target IP or domain")
     parser.add_argument("--port", type=int, default=80, help="Target port")
     parser.add_argument("--method",
@@ -75,6 +89,9 @@ def main():
     parser.add_argument("--proxy-file", type=str, help="File proxy custom")
     parser.add_argument("--ua-file", type=str, help="File user-agent custom untuk HTTP flood")
 
+    # Port Scanner
+    parser.add_argument("--scan", action="store_true", help="Jalankan port scanner terhadap target")
+
     args = parser.parse_args()
 
     # Mode scraper
@@ -89,8 +106,15 @@ def main():
         print("[+] Disimpan ke ua.txt")
         return
 
+    # Mode port scanner
+    if args.scan:
+        if not args.target:
+            parser.error("--target wajib diisi untuk mode --scan")
+        run_port_scan(args.target)
+        return
+
     if not args.target or not args.method:
-        parser.error("--target dan --method wajib diisi (kecuali mode scraper)")
+        parser.error("--target dan --method wajib diisi (kecuali mode scraper/scan)")
 
     target = args.target
     if args.real_ip:
