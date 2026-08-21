@@ -1,1 +1,1 @@
-from . import udp_flood, syn_flood, icmp_flood, tcp_flood, http_flood, slowloris, dns_amp, ntp_amp, memcached_amp, bypass_attack, http2_flood, rudy, amplification_flood
+from . import udp_flood, syn_flood, icmp_flood, tcp_flood, http_flood, slowloris, dns_amp, ntp_amp, memcached_amp, bypass_attack, http2_flood, rudy, amplification_flood, http_smuggling, tls_renegotiation, ip_fragmentation, icmpv6_flood
